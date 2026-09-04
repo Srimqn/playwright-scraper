@@ -1,0 +1,7 @@
+[tool.ruff]
+line-length = 100
+
+[tool.pyright]
+include = ["scraper.py"]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
