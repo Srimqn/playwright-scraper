@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import ipaddress
+import socket
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -42,9 +44,34 @@ def _require_api_key(api_key: str | None) -> None:
 
 
 def _check_allowed_domain(url: str) -> None:
-    hostname = (urlparse(url).hostname or "").casefold().rstrip(".")
-    if not hostname or hostname not in _allowed_domains():
+    parsed = urlparse(url)
+    hostname = (parsed.hostname or "").casefold().rstrip(".")
+    allowed_domains = _allowed_domains()
+
+    if parsed.scheme not in {"http", "https"}:
+        raise HTTPException(status_code=403, detail="Only HTTP and HTTPS URLs are allowed")
+    if not hostname:
         raise HTTPException(status_code=403, detail="Target domain is not allowed")
+    if not _is_public_hostname(hostname):
+        raise HTTPException(status_code=403, detail="Target domain is not allowed")
+    if "*" not in allowed_domains and hostname not in allowed_domains:
+        raise HTTPException(status_code=403, detail="Target domain is not allowed")
+
+
+def _is_public_hostname(hostname: str) -> bool:
+    if hostname == "localhost" or hostname.endswith(".localhost"):
+        return False
+    try:
+        addresses = {ipaddress.ip_address(hostname)}
+    except ValueError:
+        try:
+            addresses = {
+                ipaddress.ip_address(info[4][0])
+                for info in socket.getaddrinfo(hostname, None, type=socket.SOCK_STREAM)
+            }
+        except socket.gaierror:
+            return False
+    return bool(addresses) and all(address.is_global for address in addresses)
 
 
 @app.get("/health")

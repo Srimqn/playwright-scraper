@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import socket
 import unittest
 from unittest.mock import patch
 
@@ -48,6 +49,45 @@ class ApiTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json()["detail"], "Target domain is not allowed")
+
+    @patch.dict(os.environ, {"SCRAPER_ALLOWED_DOMAINS": "*"})
+    @patch("api.socket.getaddrinfo", return_value=[(socket.AF_INET, 0, 0, "", ("93.184.216.34", 0))])
+    @patch("api.PlaywrightScraper")
+    def test_wildcard_allows_public_domain(self, scraper_class, getaddrinfo) -> None:
+        scraper_class.return_value.fetch.return_value = {"page_title": "Example", "blocked": None}
+        response = self.client.post(
+            "/scrape",
+            headers={"X-API-Key": "test-key"},
+            json={"url": "https://any-public-domain.test"},
+        )
+        self.assertEqual(response.status_code, 200)
+
+    @patch.dict(os.environ, {"SCRAPER_ALLOWED_DOMAINS": ""})
+    def test_empty_allowlist_rejects_domain(self) -> None:
+        response = self.client.post(
+            "/scrape",
+            headers={"X-API-Key": "test-key"},
+            json={"url": "https://example.com"},
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_local_and_private_targets_are_rejected(self) -> None:
+        for url in ("http://localhost", "http://127.0.0.1", "http://10.0.0.1", "http://169.254.169.254"):
+            with self.subTest(url=url):
+                response = self.client.post(
+                    "/scrape",
+                    headers={"X-API-Key": "test-key"},
+                    json={"url": url},
+                )
+                self.assertEqual(response.status_code, 403)
+
+    def test_invalid_url_scheme_is_rejected(self) -> None:
+        response = self.client.post(
+            "/scrape",
+            headers={"X-API-Key": "test-key"},
+            json={"url": "ftp://example.com/file"},
+        )
+        self.assertEqual(response.status_code, 400)
 
     @patch.dict(os.environ, {"SCRAPER_API_KEY": "test-key", "SCRAPER_ALLOWED_DOMAINS": "example.com"})
     @patch("api.PlaywrightScraper")

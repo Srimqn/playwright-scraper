@@ -65,7 +65,7 @@ Install the API dependencies from `requirements.txt`, then start locally with:
 
 ```powershell
 $env:SCRAPER_API_KEY = "replace-with-a-private-key"
-$env:SCRAPER_ALLOWED_DOMAINS = "example.com,www.elevancehealth.com"
+$env:SCRAPER_ALLOWED_DOMAINS = "*"
 python -m uvicorn api:app --host 127.0.0.1 --port 8000
 ```
 
@@ -81,7 +81,7 @@ The n8n HTTP Request node should use `POST https://your-domain.example/scrape`, 
 }
 ```
 
-`SCRAPER_API_KEY` is required. `SCRAPER_ALLOWED_DOMAINS` is a comma-separated exact hostname allowlist; an empty value rejects every target. The API returns `403` for blocked pages or disallowed domains, `400` for invalid request data, and `500` for unexpected scrape failures.
+`SCRAPER_API_KEY` is required. Set `SCRAPER_ALLOWED_DOMAINS=*` to allow any public HTTP/HTTPS domain, or provide a comma-separated exact hostname allowlist. An empty value rejects every target. Localhost, private, reserved, link-local, and metadata addresses remain rejected. The API returns `403` for blocked pages or disallowed domains, `400` for invalid request data, and `500` for unexpected scrape failures.
 
 ## Protection and rate limits
 
