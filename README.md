@@ -59,6 +59,30 @@ python scraper.py https://example.com --wait-selector "body" --user-agent "Learn
 python scraper.py https://example.com --header "Accept-Language=en-US,en;q=0.9"
 ```
 
+## HTTP API for n8n
+
+Install the API dependencies from `requirements.txt`, then start locally with:
+
+```powershell
+$env:SCRAPER_API_KEY = "replace-with-a-private-key"
+$env:SCRAPER_ALLOWED_DOMAINS = "example.com,www.elevancehealth.com"
+python -m uvicorn api:app --host 127.0.0.1 --port 8000
+```
+
+On the Azure VM, run the same application under a service manager and bind it to `127.0.0.1`. Put NGINX with HTTPS in front of it; do not expose port `8000` publicly.
+
+The n8n HTTP Request node should use `POST https://your-domain.example/scrape`, an `X-API-Key` header, and a JSON body such as:
+
+```json
+{
+	"url": "https://example.com",
+	"wait_selector": "body",
+	"profiles_path": null
+}
+```
+
+`SCRAPER_API_KEY` is required. `SCRAPER_ALLOWED_DOMAINS` is a comma-separated exact hostname allowlist; an empty value rejects every target. The API returns `403` for blocked pages or disallowed domains, `400` for invalid request data, and `500` for unexpected scrape failures.
+
 ## Protection and rate limits
 
 The scraper waits a randomized 2–6 seconds between requests made by the same `PlaywrightScraper` instance. It does not bypass CAPTCHA, Cloudflare, DataDome, robots restrictions, login walls, or rate limits. If a run returns a challenge page, stop and inspect the site’s terms, official API, authentication flow, and permitted crawl rate. A proxy parameter already exists (`ScrapeConfig.proxy`) and accepts one Playwright proxy dict or a list to choose from later; supply only proxies you are authorized to use.
